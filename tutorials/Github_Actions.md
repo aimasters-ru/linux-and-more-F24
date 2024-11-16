@@ -205,13 +205,13 @@ jobs:
           fetch-depth: 0
 ```
 
-Далее поиск файла, который поменялся от предыдущего коммита. Этот код можно заменить более подходящий, кажется в хуках должно быть отдельное поле для списка файлов в коммите). Обратите внимание на форму вывода найденных файлов, вернее префикс `echo "::set-output name=files::`. Такой префикс используется для сохранения какой-то информации между шагами. Потом увидите, как это используется.
+Далее поиск файла, который поменялся от предыдущего коммита. Этот код, возможно, получится заменить на более подходящий, кажется в хуках должно быть отдельное поле для списка файлов в коммите). Обратите внимание на форму сохранения найденных файлов, вернее префикс `echo "files=...">>$GITHUB_OUTPUT`. Такая форма используется для сохранения какой-то информации между шагами. Потом увидите, как это используется.
 
 ```yaml
       - name: get changed files
         id: getchfile
         run: |
-          echo "::set-output name=files::$(git diff-tree --no-commit-id --name-only -r ${{ github.sha }} | xargs)"
+          echo "files=$(git diff --name-only ${{ github.event.before }} ${{ github.event.after }} | xargs)">>$GITHUB_OUTPUT
           echo ${{ steps.getchfile.outputs.files }}
 ```
 
@@ -224,10 +224,10 @@ jobs:
           SOURCE_BASE="${{ steps.getchfile.outputs.files }}"
           TEAM="${SOURCE_BASE%%-*}"
           echo $TEAM
-          echo "::set-output name=name::$TEAM"
+          echo "name=$TEAM">>$GITHUB_OUTPUT
 ```          
 
-Наконец запуск приложения. Запускается скрипт, путь к которому берется из переменной $RUN_SOLUTION, с агрументом-питоновским файлом или тетрадкой, которая запускается. Напомню, что `RUN_SOLUTION: ./run_solution.sh`, т.е. запускается файл из текущей директории. То есть из папки репо, так как текущая директория и есть папка репо, склонированная на первом шаге (setup).
+Наконец, запуск приложения. Запускается скрипт, путь к которому берется из переменной $RUN_SOLUTION, с агрументом-питоновским файлом или тетрадкой, которая запускается. Напомню, что `RUN_SOLUTION: ./run_solution.sh`, т.е. запускается файл из текущей директории. То есть из папки репо, так как текущая директория и есть папка репо, склонированная на первом шаге (setup).
 
 ```yaml
       - name: run the app
@@ -245,7 +245,7 @@ jobs:
         run: |
           out_files=$(find "$WORKING/${{ steps.team.outputs.name }}" -name submission.csv)
           echo FOUND $out_files
-          echo "::set-output name=files::"$out_files
+          echo "files=$out_files">>$GITHUB_OUTPUT
 ```
 
 Запускаем вычисление метрики, используя ответы.
@@ -257,7 +257,7 @@ jobs:
           echo $TRUE_ANS
           metrics=$($PYTHON $CALC_METRIC $TRUE_ANS "${{steps.getoutfile.outputs.files}}")
           echo $metrics
-          echo "::set-output name=metrics::$metrics"
+          echo "metrics=$metrics">>$GITHUB_OUTPUT
 ```
 
 На последнем шаге добавляем строчку с вычисленным скором к файлу README.md, в котором таким образом сохраняется табличка с результатами всех участников. Заметьте, что мы делаем git pull перед коммитом на всякий случай.
